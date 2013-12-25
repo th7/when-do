@@ -1,5 +1,37 @@
 #!/usr/bin/env ruby
 
-require 'when'
+require 'when-cron'
+require 'when-do'
+require 'redis'
+require 'json'
 
-puts 'hi'
+$redis = Redis.new
+
+# (1..10).each_with_index do |i|
+#   When.schedule(i.to_s, Object, '* * * * *')
+# end
+
+begin
+  loop do
+    to_sleep = 1# - Time.now.sec
+    puts "sleeping #{to_sleep} seconds"
+    sleep to_sleep
+    started_at = Time.now
+    puts
+    puts started_at
+
+    $redis.hvals('when:schedules').each do |s|
+      schedule = JSON.parse(s)
+      p schedule
+      cron = When::Cron.new(schedule['cron'])
+      p cron == started_at
+    end
+  end
+rescue Interrupt => e
+  puts
+  puts "Stopping..."
+end
+# $schedules.each do |k, v|
+#   p k
+#   p JSON.parse(v)
+# end
