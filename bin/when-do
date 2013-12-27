@@ -1,37 +1,138 @@
 #!/usr/bin/env ruby
 
 require 'when-cron'
-require 'when-do'
-require 'redis'
 require 'json'
+require 'redis'
 
-$redis = Redis.new
+class WhenDo
+  def self.setup!
+    setup_logging!
+    seed_schedules!
+    clear_schedules!
+  end
 
-# (1..10).each_with_index do |i|
-#   When.schedule(i.to_s, Object, '* * * * *')
-# end
+  def self.begin_loop!
+    begin
+      loop do
+        # to_sleep = 61 - Time.now.sec
+        # puts "sleeping #{to_sleep} seconds"
+        # sleep to_sleep
 
-begin
-  loop do
-    to_sleep = 1# - Time.now.sec
-    puts "sleeping #{to_sleep} seconds"
-    sleep to_sleep
-    started_at = Time.now
-    puts
-    puts started_at
-
-    $redis.hvals('when:schedules').each do |s|
-      schedule = JSON.parse(s)
-      p schedule
-      cron = When::Cron.new(schedule['cron'])
-      p cron == started_at
+        started_at = Time.now
+        puts
+        puts started_at
+        schedules = redis.hvals('when:schedules')
+        puts "schedules loaded #{Time.now}"
+        to_queue = []
+        redis.pipelined do
+          schedules.each do |s|
+            schedule = JSON.parse(s)
+            # p schedule
+            cron = When::Cron.new(schedule['cron'])
+            # p cron == started_at
+            if cron == started_at
+              # to_queue << schedule
+              job = {'retry' => true, 'queue' => 'default', 'class' => schedule['class'], 'args' => schedule['args'], 'jid' => SecureRandom.uuid, 'enqueued_at' => Time.now.to_f}
+              redis.lpush('queue:default', job.to_json)
+            end
+          end
+        end
+        redis.del('queue:default')
+        finished_at = Time.now
+        puts finished_at
+        if @logging
+          @log_file.write("#{started_at},#{finished_at},#{finished_at - started_at},#{`ps -o rss= -p #{Process.pid}`.to_i}\n")
+        end
+      end
+    rescue Interrupt => e
+      puts
+      puts "Stopping..."
+    ensure
+      @log_file.close if @log_file
     end
   end
-rescue Interrupt => e
-  puts
-  puts "Stopping..."
+
+  private
+
+
+  def self.redis
+    @redis ||= Redis.new
+  end
+
+  # def self.no_sleep?
+  #   @no_sleep
+  # end
+
+  def self.setup_logging!
+    if index = ARGV.find_index { |arg| arg == '-log'}
+      @logging = true
+      if ARGV[index + 1] && ARGV[index + 1][0] != '-'
+        filename = ARGV[index + 1]
+      else
+        filename = 'when_log.log'
+      end
+      @log_file = File.new(filename, 'w')
+      @log_file.write("started_at,finished_at,seconds,memory\n")
+    end
+  end
+
+  def self.seed_schedules!
+    require 'when-do'
+    if index = ARGV.find_index { |arg| arg == '-seed'}
+      if ARGV[index + 1] && ARGV[index + 1][0] != '-'
+        quantity = ARGV[index + 1].to_i
+      else
+        quantity = 100000
+      end
+
+      (1..quantity).each_with_index do |i|
+        if rand(rand_seed) == 1
+          When.schedule(i.to_s, klass, cron)
+        else
+          When.schedule(i.to_s, klass, '0 0 0 0 0')
+        end
+      end
+      exit
+    end
+  end
+
+  def self.cron
+    if index = ARGV.find_index { |arg| arg == '-cron'}
+      ARGV[index + 1]
+    else
+      '* * * * *'
+    end
+  end
+
+  def self.rand_seed
+    @rand_seed ||= if index = ARGV.find_index { |arg| arg == '-rand_seed'}
+      ARGV[index + 1].to_i
+    else
+      1
+    end
+  end
+
+  def self.klass
+    if index = ARGV.find_index { |arg| arg == '-class'}
+      ARGV[index + 1]
+    else
+      'Worker'
+    end
+  end
+
+  def self.clear_schedules!
+    if ARGV.find { |arg| arg == '-clear_schedules' }
+      redis.del('when:schedules')
+      exit
+    end
+  end
+  # def self.setup_no_sleep!
+  #   no_sleep = ARGV.find { |arg| arg == '-no_sleep' }
+  # end
+
+  # setup_no_sleep!
+
 end
-# $schedules.each do |k, v|
-#   p k
-#   p JSON.parse(v)
-# end
+
+WhenDo.setup!
+WhenDo.begin_loop!
