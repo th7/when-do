@@ -4,135 +4,58 @@ require 'when-cron'
 require 'json'
 require 'redis'
 
-class WhenDo
-  def self.setup!
-    setup_logging!
-    seed_schedules!
-    clear_schedules!
-  end
+schedule_key = 'when:schedules'
+worker_queue_key = 'resque:queue:jobs'
+redis = Redis.new
 
-  def self.begin_loop!
-    begin
-      loop do
-        # to_sleep = 61 - Time.now.sec
-        # puts "sleeping #{to_sleep} seconds"
-        # sleep to_sleep
-
-        started_at = Time.now
-        puts
-        puts started_at
-        schedules = redis.hvals('when:schedules')
-        puts "schedules loaded #{Time.now}"
-        to_queue = []
-        redis.pipelined do
-          schedules.each do |s|
-            schedule = JSON.parse(s)
-            # p schedule
-            cron = When::Cron.new(schedule['cron'])
-            # p cron == started_at
-            if cron == started_at
-              # to_queue << schedule
-              job = {'retry' => true, 'queue' => 'default', 'class' => schedule['class'], 'args' => schedule['args'], 'jid' => SecureRandom.uuid, 'enqueued_at' => Time.now.to_f}
-              redis.lpush('queue:default', job.to_json)
-            end
-          end
-        end
-        redis.del('queue:default')
-        finished_at = Time.now
-        puts finished_at
-        if @logging
-          @log_file.write("#{started_at},#{finished_at},#{finished_at - started_at},#{`ps -o rss= -p #{Process.pid}`.to_i}\n")
-        end
-      end
-    rescue Interrupt => e
-      puts
-      puts "Stopping..."
-    ensure
-      @log_file.close if @log_file
-    end
-  end
-
-  private
-
-
-  def self.redis
-    @redis ||= Redis.new
-  end
-
-  # def self.no_sleep?
-  #   @no_sleep
-  # end
-
-  def self.setup_logging!
-    if index = ARGV.find_index { |arg| arg == '-log'}
-      @logging = true
-      if ARGV[index + 1] && ARGV[index + 1][0] != '-'
-        filename = ARGV[index + 1]
-      else
-        filename = 'when_log.log'
-      end
-      @log_file = File.new(filename, 'w')
-      @log_file.write("started_at,finished_at,seconds,memory\n")
-    end
-  end
-
-  def self.seed_schedules!
-    require 'when-do'
-    if index = ARGV.find_index { |arg| arg == '-seed'}
-      if ARGV[index + 1] && ARGV[index + 1][0] != '-'
-        quantity = ARGV[index + 1].to_i
-      else
-        quantity = 100000
-      end
-
-      (1..quantity).each_with_index do |i|
-        if rand(rand_seed) == 1
-          When.schedule(i.to_s, klass, cron)
-        else
-          When.schedule(i.to_s, klass, '0 0 0 0 0')
-        end
-      end
-      exit
-    end
-  end
-
-  def self.cron
-    if index = ARGV.find_index { |arg| arg == '-cron'}
-      ARGV[index + 1]
-    else
-      '* * * * *'
-    end
-  end
-
-  def self.rand_seed
-    @rand_seed ||= if index = ARGV.find_index { |arg| arg == '-rand_seed'}
-      ARGV[index + 1].to_i
-    else
-      1
-    end
-  end
-
-  def self.klass
-    if index = ARGV.find_index { |arg| arg == '-class'}
-      ARGV[index + 1]
-    else
-      'Worker'
-    end
-  end
-
-  def self.clear_schedules!
-    if ARGV.find { |arg| arg == '-clear_schedules' }
-      redis.del('when:schedules')
-      exit
-    end
-  end
-  # def self.setup_no_sleep!
-  #   no_sleep = ARGV.find { |arg| arg == '-no_sleep' }
-  # end
-
-  # setup_no_sleep!
-
+def finish
+  puts "\nShutting down..."
+  exit if $sleeping
+  $exit = true
 end
 
-WhenDo.setup!
-WhenDo.begin_loop!
+Signal.trap('HUP') do
+  finish
+end
+
+Signal.trap('INT') do
+  finish
+end
+
+Signal.trap('QUIT') do
+  finish
+end
+
+Signal.trap('TERM') do
+  finish
+end
+
+loop do
+  exit if $exit
+  $sleeping = true
+  sleep 61 - Time.now.sec
+  $sleeping = false
+
+  started_at = Time.now
+  day_key = "#{schedule_key}:#{started_at.to_s.split(' ')[0]}"
+  min_key = "#{started_at.hour}:#{started_at.min}"
+  check_and_set_analyzed = redis.multi do
+    redis.hget(day_key, min_key)
+    redis.hset(day_key, min_key, 't')
+    redis.expire(day_key, 60 * 60 * 24)
+  end
+  previously_analyzed = check_and_set_analyzed[0]
+  next if previously_analyzed
+
+  schedules = redis.hvals(schedule_key)
+  redis.pipelined do
+    schedules.each do |s|
+      schedule = JSON.parse(s)
+      cron = When::Cron.new(schedule['cron'])
+      if cron == started_at
+        job = { 'class' => schedule['class'], 'args' => schedule['args'] }
+        redis.lpush(worker_queue_key, job.to_json)
+      end
+    end
+  end
+end
