@@ -37,13 +37,16 @@ loop do
   $sleeping = false
 
   started_at = Time.now
+
   day_key = "#{schedule_key}:#{started_at.to_s.split(' ')[0]}"
   min_key = "#{started_at.hour}:#{started_at.min}"
+
   check_and_set_analyzed = redis.multi do
     redis.hget(day_key, min_key)
     redis.hset(day_key, min_key, 't')
     redis.expire(day_key, 60 * 60 * 24)
   end
+
   previously_analyzed = check_and_set_analyzed[0]
   next if previously_analyzed
 
