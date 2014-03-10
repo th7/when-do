@@ -45,7 +45,7 @@ module When
   end
 
   def self.enqueue_at(time, klass, *args)
-    job = { 'jid' => SecureRandom.uuid, 'class' => klass, 'args' => args }
+    job = { 'jid' => SecureRandom.uuid, 'class' => klass.to_s, 'args' => args }
     if redis.zadd(delayed_queue_key, time.to_i, job.to_json)
       logger.info("Delayed: will enqueue #{job} to run at #{time}.")
       job['jid']
@@ -57,7 +57,7 @@ module When
   end
 
   def self.enqueue(klass, *args)
-    job = { 'jid' => SecureRandom.uuid, 'class' => klass, 'args' => args }
+    job = { 'jid' => SecureRandom.uuid, 'class' => klass.to_s, 'args' => args }
     if redis.lpush(worker_queue_key, job.to_json) > 0
       job['jid']
     else
