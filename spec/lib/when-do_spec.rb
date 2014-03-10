@@ -36,19 +36,19 @@ describe When do
     let(:klass) { String }
 
     it 'adds an item to the delayed list' do
-      expect { When.enqueue_at(now, String) }
+      expect { When.enqueue_at(now, klass) }
         .to change { redis.zrange(When.delayed_queue_key, 0, -1).count }
         .from(0).to(1)
     end
 
     it 'adds the correct score' do
-      When.enqueue_at(now, String)
+      When.enqueue_at(now, klass)
       score = redis.zrange(When.delayed_queue_key, 0, -1, with_scores: true).first.last
       expect(score).to eq now.to_i.to_f
     end
 
     it 'adds the correct args' do
-      When.enqueue_at(now, String, *args)
+      When.enqueue_at(now, klass, *args)
       new_args = JSON.parse(redis.zrange(When.delayed_queue_key, 0, -1).first)['args']
       expect(new_args).to eq args
     end
