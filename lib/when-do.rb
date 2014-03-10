@@ -85,7 +85,7 @@ module When
   end
 
   def self.config=(new_config)
-    logger.info("Setting config to #{new_config.inspect}")
+    logger.info("Resetting config to #{new_config.inspect}") if @config
     @config = new_config
   end
 
