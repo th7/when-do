@@ -1,12 +1,19 @@
-# When
+# When-do
 
-TODO: Write a gem description
+Reads schedules from Redis and moves them onto a Redis list at the correct time.
+
+Supports
+
+* Dynamic cron schedules
+* Delayed queueing
+
+Schedules are not cached and can be changed at will. Redundant processes can run without duplication of jobs as long as they point to the same Redis. Jobs will not be double-queued when DST resets time backwards, but will be skipped when DST moves time forward. Leap seconds should be fine.
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
-    gem 'when'
+    gem 'when-do'
 
 And then execute:
 
@@ -14,11 +21,52 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install when
+    $ gem install when-do
 
 ## Usage
+From your project's main directory:
 
-TODO: Write usage instructions here
+    $ when-do -init
+
+Rename the example config and tweak as needed. For example, try setting your ```:worker_queue_key: 'queues:default'``` so Sidekiq picks up your jobs. Use symbols for all keys in the config.
+
+Then run in your console with default config:
+
+    $ when-do
+
+Or start a daemon that uses your config file and writes a pid file.
+
+    $ when-do -d -c 'config/when.yml' -e development
+
+I'd recommend using Monit to manage and monitor daemons. When-do is designed to let a different process handle failure notifications/restarting.
+
+Then, from your app...
+
+Queue a job now:
+
+    When.enqueue(WorkerClass, args, more_args, ...)
+
+Queue a job later (minute precision):
+
+    When.enqueue_at(Time.now + 60, WorkerClass, args, more_args, ...)
+
+Schedule a job (only numbers are supported in cron strings):
+
+    When.schedule('schedule_name', '0 * * * *', WorkerClass, args, more_args, ...)
+
+Unschedule a job:
+
+    When.unschedule('schedule_name')
+
+Clear schedules:
+
+    When.unschedule_all
+
+Check schedules:
+
+    When.schedules
+
+On my 2013 Macbook Air, 100k schedules can be analyzed in <3 seconds.
 
 ## Contributing
 

@@ -7,8 +7,8 @@ Gem::Specification.new do |spec|
   spec.version       = '0.0.1'
   spec.authors       = ["TH"]
   spec.email         = ["tylerhartland7@gmail.com"]
-  spec.description   = %q{Executes ruby according to a cron.}
-  spec.summary       = %q{Executes ruby according to a cron.}
+  spec.description   = %q{Queues jobs when you want.}
+  spec.summary       = %q{Queues jobs when you want.}
   spec.homepage      = ""
   spec.license       = "MIT"
 
@@ -26,4 +26,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "guard"
   spec.add_development_dependency "rspec"
   spec.add_development_dependency "guard-rspec"
+  spec.add_development_dependency "pry"
 end

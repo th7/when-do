@@ -1,64 +1,8 @@
 #!/usr/bin/env ruby
 
-require 'when-cron'
-require 'json'
-require 'redis'
+require_relative '../lib/when-do/cli'
+require_relative '../lib/when-do/do'
 
-schedule_key = 'when:schedules'
-worker_queue_key = 'resque:queue:jobs'
-redis = Redis.new
-
-def finish
-  puts "\nShutting down..."
-  exit if $sleeping
-  $exit = true
-end
-
-Signal.trap('HUP') do
-  finish
-end
-
-Signal.trap('INT') do
-  finish
-end
-
-Signal.trap('QUIT') do
-  finish
-end
-
-Signal.trap('TERM') do
-  finish
-end
-
-loop do
-  exit if $exit
-  $sleeping = true
-  sleep 61 - Time.now.sec
-  $sleeping = false
-
-  started_at = Time.now
-
-  day_key = "#{schedule_key}:#{started_at.to_s.split(' ')[0]}"
-  min_key = "#{started_at.hour}:#{started_at.min}"
-
-  check_and_set_analyzed = redis.multi do
-    redis.hget(day_key, min_key)
-    redis.hset(day_key, min_key, 't')
-    redis.expire(day_key, 60 * 60 * 24)
-  end
-
-  previously_analyzed = check_and_set_analyzed[0]
-  next if previously_analyzed
-
-  schedules = redis.hvals(schedule_key)
-  redis.pipelined do
-    schedules.each do |s|
-      schedule = JSON.parse(s)
-      cron = When::Cron.new(schedule['cron'])
-      if cron == started_at
-        job = { 'class' => schedule['class'], 'args' => schedule['args'] }
-        redis.lpush(worker_queue_key, job.to_json)
-      end
-    end
-  end
-end
+cli = When::CLI.new
+cli.init
+When::Do.new(cli.options).start_loop

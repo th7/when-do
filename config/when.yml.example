@@ -1,0 +1,8 @@
+:development:
+  :schedule_key:      'when:schedules'
+  :worker_queue_key:  'when:queue:default'
+  :delayed_queue_key: 'when:delayed'
+  :log_path:          'log/when-do.log'
+  :log_level:         1
+  # :pid_file_path:     'tmp/pids/when-do.pid'
+  # :redis_config_path:      'config/redis.yml'
