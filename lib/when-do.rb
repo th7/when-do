@@ -12,13 +12,8 @@ module When
 
   def self.schedule(name, cron, klass, *args)
     schedule = {'class' => klass.to_s, 'cron' => cron, 'args' => args}
-    if redis.hset(schedule_key, name.to_s, schedule.to_json)
-      logger.info("Scheduled '#{name}' => #{schedule}.")
-    else
-      msg = "Could not schedule '#{name}' => #{schedule}."
-      logger.fatal(msg)
-      raise msg
-    end
+    redis.hset(schedule_key, name.to_s, schedule.to_json)
+    logger.info("Scheduled '#{name}' => #{schedule}.")
   end
 
   def self.unschedule(name)
