@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
   spec.name          = "when-do"
-  spec.version       = '1.0.3'
+  spec.version       = '1.0.4'
   spec.authors       = ["TH"]
   spec.email         = ["tylerhartland7@gmail.com"]
   spec.description   = %q{Queues jobs when you want.}
