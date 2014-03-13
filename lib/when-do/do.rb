@@ -63,7 +63,7 @@ module When
     end
 
     def analyze
-      ['HUP', 'INT', 'TERM'].each { |sig| Signal.trap(sig) { }}
+      ['HUP', 'INT', 'TERM', 'QUIT'].each { |sig| Signal.trap(sig) { }}
       started_at = Time.now
       if running?(started_at)
         logger.info('Another process is already analyzing.')
