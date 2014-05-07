@@ -7,7 +7,7 @@ Supports
 * Dynamic cron schedules
 * Delayed queueing
 
-Schedules are not cached and can be changed at will. Redundant processes can run without duplication of jobs as long as they point to the same Redis. Jobs will not be double-queued when DST resets time backwards, but will be skipped when DST moves time forward. Leap seconds should be fine.
+Schedules are not cached and can be changed at will. Redundant processes can run without duplication of jobs as long as they point to the same Redis. Jobs will not be double-queued when DST resets time backwards, and will be queued as DST skips over them. Leap seconds are fine.
 
 ## Installation
 
@@ -66,7 +66,7 @@ Check schedules:
 
     When.schedules
 
-On my 2013 Macbook Air, 100k schedules can be analyzed in <3 seconds.
+On my 2013 1.3GHz Macbook Air, 100k schedules can be analyzed in <3 seconds.
 
 ## Contributing
 
