@@ -134,4 +134,93 @@ describe When::Do do
         .to(2)
     end
   end
+
+  describe '#dst_forward?' do
+    context 'started_at is the minute after dst skips forward' do
+      let(:started_at) { Time.new(2014, 3, 9, 3) }
+
+      it 'returns true' do
+        expect(when_do.dst_forward?(started_at)).to eq true
+      end
+    end
+
+    context 'started_at is the minute before dst skips forward' do
+      let(:started_at) { Time.new(2014, 3, 9, 1, 59) }
+
+      it 'returns false' do
+        expect(when_do.dst_forward?(started_at)).to eq false
+      end
+    end
+
+    context 'started_at is the minute after dst skips backward' do
+      let(:started_at) { Time.new(2014, 11, 2, 1) }
+
+      it 'returns false' do
+        expect(when_do.dst_forward?(started_at)).to eq false
+      end
+    end
+
+    context 'started_at is the minute before dst skips backward' do
+      let(:started_at) { Time.new(2014, 11, 2, 0, 59) + 3600 }
+
+      it 'returns false' do
+        expect(when_do.dst_forward?(started_at)).to eq false
+      end
+    end
+  end
+
+  describe '#analyze_dst' do
+    it 'calls analyze for each minute of the hour before started_at' do
+      hour_before = Time.new(started_at.year, started_at.month, started_at.day, started_at.hour - 1, 0, 0, started_at.utc_offset - 3600)
+      (0..59).each do |min|
+        expect(when_do).to receive(:analyze).with(hour_before + min * 60).ordered
+      end
+      when_do.analyze_dst(started_at)
+    end
+  end
+
+  describe '#analyze' do
+    before do
+      when_do.stub(:queue_scheduled)
+      when_do.stub(:queue_delayed)
+    end
+
+    context '#running? is false' do
+      before do
+        when_do.stub(:running?).with(started_at).and_return false
+      end
+
+      it 'calls queue_scheduled' do
+        expect(when_do).to receive(:queue_scheduled).with(started_at)
+        when_do.analyze(started_at)
+      end
+
+      it 'calls queue_delayed' do
+        expect(when_do).to receive(:queue_delayed).with(started_at)
+        when_do.analyze(started_at)
+      end
+
+      context '#dst_forward? is true' do
+        before do
+          when_do.stub(:dst_forward?).with(started_at).and_return true
+        end
+
+        it 'calls analyze_dst' do
+          expect(when_do).to receive(:analyze_dst).with(started_at)
+          when_do.analyze(started_at)
+        end
+      end
+
+      context '#dst_forward? is false' do
+        before do
+          when_do.stub(:dst_forward?).with(started_at).and_return false
+        end
+
+        it 'does not call analyze_dst' do
+          expect(when_do).not_to receive(:analyze_dst).with(started_at)
+          when_do.analyze(started_at)
+        end
+      end
+    end
+  end
 end

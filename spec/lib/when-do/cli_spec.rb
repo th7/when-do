@@ -3,6 +3,7 @@ require 'when-do/cli'
 
 describe When::CLI do
   let(:cli) { When::CLI.new }
+
   describe '#options' do
     context 'argv has an option with no following value' do
       before do

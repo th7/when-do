@@ -58,21 +58,21 @@ module When
           end
         }.abort_on_exception = true
       else
-        analyze
+        ['HUP', 'INT', 'TERM', 'QUIT'].each { |sig| Signal.trap(sig) { }}
+        analyze(Time.now)
+        exit
       end
     end
 
-    def analyze
-      ['HUP', 'INT', 'TERM', 'QUIT'].each { |sig| Signal.trap(sig) { }}
-      started_at = Time.now
+    def analyze(started_at)
       if running?(started_at)
         logger.info('Another process is already analyzing.')
       else
-        logger.debug { 'Analyzing.' }
+        analyze_dst(started_at) if dst_forward?(started_at)
+        logger.debug { "Analyzing #{started_at}." }
         queue_scheduled(started_at)
         queue_delayed(started_at)
       end
-      exit
     end
 
     def running?(started_at)
@@ -87,6 +87,18 @@ module When
       end
 
       check_and_set_analyzed[0]
+    end
+
+    def dst_forward?(started_at)
+      started_at.hour - (started_at - 60).hour == 2
+    end
+
+    def analyze_dst(started_at)
+      logger.info { "DST forward shift detected. Triggering analysis for #{started_at.hour - 1}:00 through #{started_at.hour - 1}:59"}
+      skipped_time = Time.new(started_at.year, started_at.month, started_at.day, started_at.hour - 1, 0, 0, started_at.utc_offset - 3600)
+      (0..59).each do |min|
+        analyze(skipped_time + min * 60)
+      end
     end
 
     def build_day_key(started_at)
@@ -135,7 +147,7 @@ module When
     private
 
     def sleep_until_next_minute
-      to_sleep = 62 - Time.now.sec #handle up to 2 leap seconds
+      to_sleep = 62 - Time.now.sec # handle up to 2 leap seconds
       logger.debug { "Sleeping #{to_sleep} seconds."}
       sleep(to_sleep)
     end
