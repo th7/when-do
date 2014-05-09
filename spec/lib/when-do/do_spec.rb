@@ -74,7 +74,7 @@ describe When::Do do
 
     context 'a scheduled item does not have a matching cron' do
       before do
-        When.schedule('test schedule', String, '0 0 0 0 0')
+        When.schedule('test schedule', '0 0 0 0 0', String)
       end
 
       it 'does not add an item to the queue' do
