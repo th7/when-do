@@ -154,7 +154,7 @@ module When
 
     def init_logger(log_path, log_level)
       logger = if log_path
-        Logger.new(log_path, 100, 10_240_000)
+        Logger.new(log_path)
       else
         Logger.new(STDOUT)
       end
