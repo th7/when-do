@@ -5,10 +5,11 @@ require 'logger'
 
 module When
   class Do
-    attr_reader :schedule_key, :worker_queue_key, :delayed_queue_key, :redis, :logger, :pid_file_path
+    attr_reader :opts, :schedule_key, :worker_queue_key, :delayed_queue_key, :redis, :logger, :pid_file_path
 
     def initialize(opts={})
-      @logger            = init_logger(opts[:log_path], opts[:log_level])
+      @opts   = opts
+      @logger = init_logger(opts[:log_path], opts[:log_level])
 
       Process.daemon(true) if opts.has_key?(:daemonize)
 
@@ -29,6 +30,8 @@ module When
       logger.info("Starting...")
       logger.info { "Schedule key: '#{schedule_key}', worker queue key: '#{worker_queue_key}', delayed queue key: '#{delayed_queue_key}'" }
       logger.info { "PID file: #{pid_file_path}" } if pid_file_path
+
+      Signal.trap('USR1') { @logger = init_logger(opts[:log_path], opts[:log_level]) }
 
       loop do
         sleep_until_next_minute
