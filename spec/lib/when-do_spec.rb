@@ -15,9 +15,19 @@ describe When do
   end
 
   describe '#schedule' do
-    it 'adds data to the schedules hash in redis' do
-      When.schedule('test_schedule', '* * * * *',  Object, 'arg1', 'arg2')
-      expect(redis.hget(When.schedule_key, 'test_schedule')).to eq "{\"class\":\"Object\",\"cron\":\"* * * * *\",\"args\":[\"arg1\",\"arg2\"]}"
+    context 'scheduling a valid cron' do
+      it 'adds data to the schedules hash in redis' do
+        When.schedule('test_schedule', '* * * * *',  Object, 'arg1', 'arg2')
+        expect(redis.hget(When.schedule_key, 'test_schedule')).to eq "{\"class\":\"Object\",\"cron\":\"* * * * *\",\"args\":[\"arg1\",\"arg2\"]}"
+      end
+    end
+
+    context 'scheduling an invalid cron' do
+      it 'raises a When::InvalidCron error' do
+        expect {
+          When.schedule('test_schedule', '0 0 0 0 0',  Object, 'arg1', 'arg2')
+        }.to raise_error When::InvalidCron
+      end
     end
   end
 

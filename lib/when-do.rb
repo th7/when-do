@@ -4,6 +4,9 @@ require 'yaml'
 require 'logger'
 
 module When
+  class Error < StandardError; end
+  class InvalidCron < Error; end
+
   DEFAULT_CONFIG = {
     schedule_key:      'when:schedules',
     worker_queue_key:  'when:queue:default',
@@ -11,6 +14,7 @@ module When
   }
 
   def self.schedule(name, cron, klass, *args)
+    raise InvalidCron, "\"#{cron}\" is invalid" unless When::Cron.valid?(cron)
     schedule = {'class' => klass.to_s, 'cron' => cron, 'args' => args}
     redis.hset(schedule_key, name.to_s, schedule.to_json)
     logger.info("Scheduled '#{name}' => #{schedule}.")
