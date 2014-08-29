@@ -117,9 +117,12 @@ module When
       logger.info("Analyzing #{schedules.count} schedules.")
       scheduled_jobs = schedules.inject([]) do |jobs, s|
         schedule = JSON.parse(s)
-        cron = When::Cron.new(schedule['cron'])
-        if cron == started_at
-          jobs << { 'jid' => SecureRandom.uuid, 'class' => schedule['class'], 'args' => schedule['args'] }.to_json
+        if cron = When::Cron.valid(schedule['cron'])
+          if cron == started_at
+            jobs << { 'jid' => SecureRandom.uuid, 'class' => schedule['class'], 'args' => schedule['args'] }.to_json
+          end
+        else
+          logger.error { "Could not interpret cron for #{schedule.inspect}" }
         end
         jobs
       end

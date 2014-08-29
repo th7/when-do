@@ -74,10 +74,24 @@ describe When::Do do
 
     context 'a scheduled item does not have a matching cron' do
       before do
-        When.schedule('test schedule', '0 0 0 0 0', String)
+        When.schedule('test schedule', '0 0 1 1 0', String)
       end
 
       it 'does not add an item to the queue' do
+        expect { when_do.queue_scheduled(started_at) }
+          .not_to change { redis.lpop(when_do.worker_queue_key) }
+          .from(nil)
+      end
+    end
+
+    context 'a scheduled item has an erroneous cron' do
+      before do
+        schedule = {'class' => String.to_s, 'cron' => 'this cron is totally wrong', 'args' => []}
+        redis.hset(When.schedule_key, 'test_schedule', schedule.to_json)
+      end
+
+      it 'does not add an item to the queue' do
+        expect(When.schedules.count).to eq 1
         expect { when_do.queue_scheduled(started_at) }
           .not_to change { redis.lpop(when_do.worker_queue_key) }
           .from(nil)
