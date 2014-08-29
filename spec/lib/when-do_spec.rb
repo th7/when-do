@@ -31,6 +31,19 @@ describe When do
     end
   end
 
+  describe '.valid_cron?' do
+    context 'when cron is valid' do
+      it 'returns true' do
+        expect(When.valid_cron?('* * * * *')).to eq true
+      end
+    end
+
+    context 'when cron is not valid' do
+      it 'returns false' do
+        expect(When.valid_cron?('* * * a* *')).to eq false
+      end
+    end
+  end
   describe '#unschedule' do
     it 'removes data from the schedules hash in redis' do
       When.schedule('test_schedule', '* * * * *', Object)

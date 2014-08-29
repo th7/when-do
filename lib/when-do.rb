@@ -14,10 +14,14 @@ module When
   }
 
   def self.schedule(name, cron, klass, *args)
-    raise InvalidCron, "\"#{cron}\" is invalid" unless When::Cron.valid?(cron)
+    raise InvalidCron, "\"#{cron}\" is invalid" unless valid_cron?(cron)
     schedule = {'class' => klass.to_s, 'cron' => cron, 'args' => args}
     redis.hset(schedule_key, name.to_s, schedule.to_json)
     logger.info("Scheduled '#{name}' => #{schedule}.")
+  end
+
+  def self.valid_cron?(cron)
+    When::Cron.valid?(cron)
   end
 
   def self.unschedule(name)
