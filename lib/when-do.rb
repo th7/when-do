@@ -3,6 +3,8 @@ require 'json'
 require 'yaml'
 require 'logger'
 
+require 'when-cron'
+
 module When
   class Error < StandardError; end
   class InvalidCron < Error; end
