@@ -17,8 +17,8 @@ describe When do
   describe '#schedule' do
     context 'scheduling a valid cron' do
       it 'adds data to the schedules hash in redis' do
-        When.schedule('test_schedule', '* * * * *',  Object, 'arg1', 'arg2')
-        expect(redis.hget(When.schedule_key, 'test_schedule')).to eq "{\"class\":\"Object\",\"cron\":\"* * * * *\",\"args\":[\"arg1\",\"arg2\"]}"
+        When.schedule('test_schedule', '* * * * *',  Object, 'arg1', 'arg2', worker_args: { 'some' => 'args' })
+        expect(redis.hget(When.schedule_key, 'test_schedule')).to eq "{\"some\":\"args\",\"class\":\"Object\",\"cron\":\"* * * * *\",\"args\":[\"arg1\",\"arg2\"]}"
       end
     end
 
@@ -81,6 +81,12 @@ describe When do
       new_args = JSON.parse(redis.zrange(When.delayed_queue_key, 0, -1).first)['class']
       expect(new_args).to eq klass.name
     end
+
+    it 'adds worker args' do
+      When.enqueue(klass, worker_args: { these_are: 'some_args' })
+      job = JSON.parse(redis.rpop(When.worker_queue_key))
+      expect(job['these_are']).to eq 'some_args'
+    end
   end
 
   describe '#enqueue' do
@@ -103,6 +109,12 @@ describe When do
       When.enqueue(klass)
       enqueued_class = JSON.parse(redis.rpop(When.worker_queue_key))['class']
       expect(enqueued_class).to eq klass.name
+    end
+
+    it 'adds worker args' do
+      When.enqueue(klass, worker_args: { some: 'args' })
+      job = JSON.parse(redis.rpop(When.worker_queue_key))
+      expect(job['some']).to eq 'args'
     end
   end
 end

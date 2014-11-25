@@ -29,17 +29,17 @@ describe When::Do do
       end
 
       it 'returns true' do
-        expect(when_do.running?(started_at)).to be_true
+        expect(when_do.running?(started_at)).to eq 't'
       end
     end
 
     context 'the corresponding day hash and minute key do not exist in redis' do
       it 'sets the day hash and minute key' do
-        expect { when_do.running?(started_at) }.to change { redis.hget(day_key, min_key) }.from(nil).to be_true
+        expect { when_do.running?(started_at) }.to change { redis.hget(day_key, min_key) }.from(nil).to('t')
       end
 
       it 'returns false' do
-        expect(when_do.running?(started_at)).to be_false
+        expect(when_do.running?(started_at)).to be_nil
       end
     end
   end
@@ -48,6 +48,7 @@ describe When::Do do
     context 'a scheduled item has a matching cron' do
       let(:args) { ['arg1', 'arg2', 3, { 'more' => 'args' }] }
       let(:klass) { String }
+
       before do
         When.schedule('test schedule', '* * * * *', klass, *args)
       end
@@ -56,7 +57,7 @@ describe When::Do do
         expect { when_do.queue_scheduled(started_at) }
           .to change { redis.lpop(when_do.worker_queue_key) }
           .from(nil)
-          .to be_true
+          .to be_truthy
       end
 
       it 'includes the correct arguments' do
@@ -111,7 +112,7 @@ describe When::Do do
         expect { when_do.queue_delayed(started_at) }
           .to change { redis.lpop(when_do.worker_queue_key) }
           .from(nil)
-          .to be_true
+          .to be_truthy
       end
 
       it 'includes the correct arguments' do
@@ -141,11 +142,24 @@ describe When::Do do
   end
 
   describe '#enqueue' do
-    it 'places jobs onto the work queue' do
-      expect { when_do.enqueue(['junk', 'jobs']) }
-        .to change { redis.llen(when_do.worker_queue_key) }
-        .from(0)
-        .to(2)
+    context 'a specific queue is specified' do
+      let(:queue) { 'a_queue' }
+      let(:jobs) { [ { 'queue' => queue }, { 'queue' => queue }, {}, ] }
+
+      it 'places jobs onto the specified queue' do
+        when_do.enqueue(jobs)
+        expect(redis.llen(when_do.worker_queue_key)).to eq 1
+        expect(redis.llen(queue)).to eq 2
+      end
+    end
+
+    context 'no queue is specified' do
+      it 'places jobs onto the default work queue' do
+        expect { when_do.enqueue(['junk', 'jobs']) }
+          .to change { redis.llen(when_do.worker_queue_key) }
+          .from(0)
+          .to(2)
+      end
     end
   end
 

@@ -117,10 +117,10 @@ module When
       logger.info("Analyzing #{schedules.count} schedules.")
       scheduled_jobs = schedules.inject([]) do |jobs, s|
         schedule = JSON.parse(s)
-        if cron = When::Cron.valid(schedule['cron'])
-          if cron == started_at
-            jobs << { 'jid' => SecureRandom.uuid, 'class' => schedule['class'], 'args' => schedule['args'] }.to_json
-          end
+        if (cron = When::Cron.valid(schedule['cron'])) && cron == started_at
+          job = schedule.merge('jid' => SecureRandom.uuid)
+          job.delete('cron')
+          jobs << job
         else
           logger.error { "Could not interpret cron for #{schedule.inspect}" }
         end
@@ -132,21 +132,23 @@ module When
 
     def queue_delayed(started_at)
       logger.info("Checking for delayed jobs.")
-      delayed_jobs = redis.multi do
+      raw_delayed_jobs = redis.multi do
         redis.zrevrangebyscore(delayed_queue_key, started_at.to_i, '-inf')
         redis.zremrangebyscore(delayed_queue_key, '-inf', started_at.to_i)
       end[0]
       logger.debug { "Found #{delayed_jobs.count} delayed jobs." }
+      delayed_jobs = raw_delayed_jobs.map { |j| JSON.parse(j) }
       enqueue(delayed_jobs) if delayed_jobs.any?
     end
 
     def enqueue(jobs)
       jobs.each do |job|
         logger.info("Queueing: #{job}")
-      end
-      success = redis.lpush(worker_queue_key, jobs)
-      unless  success > 0
-        raise "Failed to queue all jobs. Redis returned #{success}."
+        queue = job['queue'] || worker_queue_key
+        success = redis.lpush(queue, job.to_json)
+        unless  success > 0
+          raise "Failed to queue #{job}. Redis returned #{success}."
+        end
       end
     end
 
