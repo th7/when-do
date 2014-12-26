@@ -50,7 +50,7 @@ describe When::Do do
       let(:klass) { String }
 
       before do
-        When.schedule('test schedule', '* * * * *', klass, *args)
+        When.schedule('test schedule', '* * * * *', klass, args: args)
       end
 
       it 'drops a job onto the queue' do
@@ -105,7 +105,7 @@ describe When::Do do
       let(:args) { ['arg1', 'arg2', 3, { 'more' => 'args' }] }
       let(:klass) { String }
       before do
-        When.enqueue_at(started_at - 1, String, *args)
+        When.enqueue_at(started_at - 1, String, args: args)
       end
 
       it 'drops a job onto the queue' do

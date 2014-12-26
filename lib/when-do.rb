@@ -15,7 +15,7 @@ module When
     delayed_queue_key: 'when:delayed'
   }
 
-  def self.schedule(name, cron, klass, *args, worker_args: {})
+  def self.schedule(name, cron, klass, args: [], worker_args: {})
     raise InvalidCron, "\"#{cron}\" is invalid" unless valid_cron?(cron)
     schedule = worker_args.merge('class' => klass.to_s, 'cron' => cron, 'args' => args)
     redis.hset(schedule_key, name.to_s, schedule.to_json)
@@ -49,7 +49,7 @@ module When
     schedules.each { |k, v| schedules[k] = JSON.parse(v) }
   end
 
-  def self.enqueue_at(time, klass, *args, worker_args: {})
+  def self.enqueue_at(time, klass, args: [], worker_args: {})
     job = worker_args.merge('jid' => SecureRandom.uuid, 'class' => klass.to_s, 'args' => args)
     if redis.zadd(delayed_queue_key, time.to_i, job.to_json)
       logger.info("Delayed: will enqueue #{job} to run at #{time}.")
@@ -61,7 +61,7 @@ module When
     end
   end
 
-  def self.enqueue(klass, *args, worker_args: {})
+  def self.enqueue(klass, args: [], worker_args: {})
     job = worker_args.merge('jid' => SecureRandom.uuid, 'class' => klass.to_s, 'args' => args)
     if redis.lpush(worker_queue_key, job.to_json) > 0
       job['jid']
