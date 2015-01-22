@@ -92,8 +92,8 @@ describe When do
     end
 
     it 'adds worker args' do
-      When.enqueue(klass, worker_args: { these_are: 'some_args' })
-      job = JSON.parse(redis.rpop(When.worker_queue_key))
+      When.enqueue_at(now, klass, worker_args: { these_are: 'some_args' })
+      job = JSON.parse(redis.zrange(When.delayed_queue_key, 0, -1).first)
       expect(job['these_are']).to eq 'some_args'
     end
 
