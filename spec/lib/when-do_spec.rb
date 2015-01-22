@@ -29,6 +29,14 @@ describe When do
         }.to raise_error When::InvalidCron
       end
     end
+
+    context 'scheduling invalid args' do
+      it 'raises a When::InvalidArgs error' do
+        expect {
+          When.schedule('test_schedule', '* * * * *',  Object, args: {not_an: 'array'})
+        }.to raise_error When::InvalidArgs
+      end
+    end
   end
 
   describe '.valid_cron?' do
@@ -88,6 +96,14 @@ describe When do
       job = JSON.parse(redis.rpop(When.worker_queue_key))
       expect(job['these_are']).to eq 'some_args'
     end
+
+    context 'enqueueing invalid args' do
+      it 'raises a When::InvalidArgs error' do
+        expect {
+          When.enqueue_at(now, Object, args: {not_an: 'array'})
+        }.to raise_error When::InvalidArgs
+      end
+    end
   end
 
   describe '#enqueue' do
@@ -116,6 +132,14 @@ describe When do
       When.enqueue(klass, worker_args: { some: 'args' })
       job = JSON.parse(redis.rpop(When.worker_queue_key))
       expect(job['some']).to eq 'args'
+    end
+
+    context 'enqueueing invalid args' do
+      it 'raises a When::InvalidArgs error' do
+        expect {
+          When.enqueue(Object, args: {not_an: 'array'})
+        }.to raise_error When::InvalidArgs
+      end
     end
   end
 end
