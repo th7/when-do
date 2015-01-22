@@ -1,7 +1,7 @@
 require 'spec_helper'
-require 'when-do'
+require 'when-do/job'
 
-describe When do
+describe When::Job do
   let(:redis) { When.redis }
 
   before do
@@ -15,9 +15,11 @@ describe When do
   end
 
   describe '#schedule' do
+    let(:job) { When::Job.new(klass: Object, args: ['arg1', 'arg2'], worker_args: { 'some' => 'args' }) }
+
     context 'scheduling a valid cron' do
       it 'adds data to the schedules hash in redis' do
-        When.schedule('test_schedule', '* * * * *',  Object, args: ['arg1', 'arg2'], worker_args: { 'some' => 'args' })
+        job.schedule('test_schedule', '* * * * *')
         expect(redis.hget(When.schedule_key, 'test_schedule')).to eq "{\"some\":\"args\",\"class\":\"Object\",\"cron\":\"* * * * *\",\"args\":[\"arg1\",\"arg2\"]}"
       end
     end
@@ -25,32 +27,9 @@ describe When do
     context 'scheduling an invalid cron' do
       it 'raises a When::InvalidCron error' do
         expect {
-          When.schedule('test_schedule', '0 0 0 0 0',  Object, args: ['arg1', 'arg2'])
+          job.schedule('test_schedule', '0 0 0 0 0')
         }.to raise_error When::InvalidCron
       end
-    end
-  end
-
-  describe '.valid_cron?' do
-    context 'when cron is valid' do
-      it 'returns true' do
-        expect(When.valid_cron?('* * * * *')).to eq true
-      end
-    end
-
-    context 'when cron is not valid' do
-      it 'returns false' do
-        expect(When.valid_cron?('* * * a* *')).to eq false
-      end
-    end
-  end
-
-  describe '#unschedule' do
-    it 'removes data from the schedules hash in redis' do
-      When.schedule('test_schedule', '* * * * *', Object)
-      expect(redis.hget(When.schedule_key, 'test_schedule')).to eq "{\"class\":\"Object\",\"cron\":\"* * * * *\",\"args\":[]}"
-      When.unschedule('test_schedule')
-      expect(redis.hget(When.schedule_key, 'test_schedule')).to be_nil
     end
   end
 
@@ -58,62 +37,64 @@ describe When do
     let(:now) { Time.now }
     let(:args) { ['arg1', 'arg2', 3, {'more' => 'args'} ] }
     let(:klass) { String }
+    let(:job)   { When::Job.new(klass: klass, args: args, worker_args: { 'some' => 'args' }) }
 
     it 'adds an item to the delayed list' do
-      expect { When.enqueue_at(now, klass) }
+      expect { job.enqueue_at(now) }
         .to change { redis.zrange(When.delayed_queue_key, 0, -1).count }
         .from(0).to(1)
     end
 
     it 'adds the correct score' do
-      When.enqueue_at(now, klass)
+      job.enqueue_at(now)
       score = redis.zrange(When.delayed_queue_key, 0, -1, with_scores: true).first.last
       expect(score).to eq now.to_i.to_f
     end
 
     it 'adds the correct args' do
-      When.enqueue_at(now, klass, args: args)
+      job.enqueue_at(now)
       new_args = JSON.parse(redis.zrange(When.delayed_queue_key, 0, -1).first)['args']
       expect(new_args).to eq args
     end
 
     it 'adds the correct class' do
-      When.enqueue_at(now, klass, args: args)
+      job.enqueue_at(now)
       new_args = JSON.parse(redis.zrange(When.delayed_queue_key, 0, -1).first)['class']
       expect(new_args).to eq klass.name
     end
 
     it 'adds worker args' do
-      When.enqueue(klass, worker_args: { these_are: 'some_args' })
-      job = JSON.parse(redis.rpop(When.worker_queue_key))
-      expect(job['these_are']).to eq 'some_args'
+      job.enqueue_at(now)
+      job = JSON.parse(redis.zrange(When.delayed_queue_key, 0, -1).first)
+      expect(job['some']).to eq 'args'
     end
   end
 
   describe '#enqueue' do
     let(:args) { ['arg1', 'arg2', 3, {'more' => 'args'} ] }
     let(:klass) { String }
+    let(:job)   { When::Job.new(klass: klass, args: args, worker_args: { 'some' => 'args' }) }
 
     it 'adds an item to the worker queue' do
-      expect { When.enqueue(klass) }
+      expect { job.enqueue }
         .to change { redis.llen(When.worker_queue_key) }
         .from(0).to(1)
     end
 
     it 'adds the correct args' do
-      When.enqueue(klass, args: args)
+      job.enqueue
       enqueued_args = JSON.parse(redis.rpop(When.worker_queue_key))['args']
       expect(enqueued_args).to eq args
     end
 
     it 'adds the correct class' do
-      When.enqueue(klass)
+      job.enqueue
       enqueued_class = JSON.parse(redis.rpop(When.worker_queue_key))['class']
       expect(enqueued_class).to eq klass.name
     end
 
     it 'adds worker args' do
-      When.enqueue(klass, worker_args: { some: 'args' })
+      job.enqueue
       job = JSON.parse(redis.rpop(When.worker_queue_key))
       expect(job['some']).to eq 'args'
     end
