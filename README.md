@@ -44,15 +44,15 @@ Then, from your app...
 
 Queue a job now:
 
-    When.enqueue(WorkerClass, args, more_args, ...)
+    When.enqueue(WorkerClass, args: ['array', 'of', 'args'], worker_args: {'retry' => 'false'})
 
 Queue a job later (minute precision):
 
-    When.enqueue_at(Time.now + 60, WorkerClass, args, more_args, ...)
+    When.enqueue_at(Time.now + 60, WorkerClass, args: ['array', 'of', 'args'], worker_args: {'queue' => 'my_other_work_queue'})
 
 Schedule a job (only numbers are supported in cron strings):
 
-    When.schedule('schedule_name', '0 * * * *', WorkerClass, args, more_args, ...)
+    When.schedule('schedule_name', '0 * * * *', WorkerClass, args: ['array', 'of', 'args'], worker_args: {'hash' => 'of_worker_args'})
 
 Unschedule a job:
 
