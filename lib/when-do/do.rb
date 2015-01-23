@@ -136,8 +136,8 @@ module When
         redis.zrevrangebyscore(delayed_queue_key, started_at.to_i, '-inf')
         redis.zremrangebyscore(delayed_queue_key, '-inf', started_at.to_i)
       end[0]
-      logger.debug { "Found #{delayed_jobs.count} delayed jobs." }
       delayed_jobs = raw_delayed_jobs.map { |j| JSON.parse(j) }
+      logger.debug { "Found #{delayed_jobs.count} delayed jobs." }
       enqueue(delayed_jobs) if delayed_jobs.any?
     end
 

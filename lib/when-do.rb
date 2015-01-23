@@ -8,6 +8,7 @@ require 'when-cron'
 module When
   class Error < StandardError; end
   class InvalidCron < Error; end
+  class InvalidArgs < Error; end
 
   DEFAULT_CONFIG = {
     schedule_key:      'when:schedules',
@@ -17,6 +18,7 @@ module When
 
   def self.schedule(name, cron, klass, args: [], worker_args: {})
     raise InvalidCron, "\"#{cron}\" is invalid" unless valid_cron?(cron)
+    validate_args(args)
     schedule = worker_args.merge('class' => klass.to_s, 'cron' => cron, 'args' => args)
     redis.hset(schedule_key, name.to_s, schedule.to_json)
     logger.info("Scheduled '#{name}' => #{schedule}.")
@@ -50,6 +52,7 @@ module When
   end
 
   def self.enqueue_at(time, klass, args: [], worker_args: {})
+    validate_args(args)
     job = worker_args.merge('jid' => SecureRandom.uuid, 'class' => klass.to_s, 'args' => args)
     if redis.zadd(delayed_queue_key, time.to_i, job.to_json)
       logger.info("Delayed: will enqueue #{job} to run at #{time}.")
@@ -62,6 +65,7 @@ module When
   end
 
   def self.enqueue(klass, args: [], worker_args: {})
+    validate_args(args)
     job = worker_args.merge('jid' => SecureRandom.uuid, 'class' => klass.to_s, 'args' => args)
     if redis.lpush(worker_queue_key, job.to_json) > 0
       job['jid']
@@ -117,5 +121,11 @@ module When
 
   def self.worker_queue_key
     config[:worker_queue_key] || 'when:queue:default'
+  end
+
+  private
+
+  def self.validate_args(args)
+    raise InvalidArgs, "must be an array" unless args.kind_of? Array
   end
 end
