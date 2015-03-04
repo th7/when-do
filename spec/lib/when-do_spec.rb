@@ -141,5 +141,15 @@ describe When do
         }.to raise_error When::InvalidArgs
       end
     end
+
+    context 'enqueueing to a specific queue' do
+      let(:specific_queue) { 'a_specific_queue' }
+
+      it 'adds an itme to the specific queue' do
+        expect { When.enqueue(klass, worker_args: { queue: specific_queue }) }
+         .to change { redis.llen(specific_queue) }
+         .from(0).to(1)
+      end
+    end
   end
 end
