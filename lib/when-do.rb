@@ -67,7 +67,8 @@ module When
   def self.enqueue(klass, args: [], worker_args: {})
     validate_args(args)
     job = worker_args.merge('jid' => SecureRandom.uuid, 'class' => klass.to_s, 'args' => args)
-    if redis.lpush(worker_queue_key, job.to_json) > 0
+    wqk = job[:queue] || job['queue'] || worker_queue_key
+    if redis.lpush(wqk, job.to_json) > 0
       job['jid']
     else
       msg = "Failed to enqueue #{job}."
