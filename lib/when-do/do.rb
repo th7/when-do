@@ -117,13 +117,16 @@ module When
       logger.info("Analyzing #{schedules.count} schedules.")
       scheduled_jobs = schedules.inject([]) do |jobs, s|
         schedule = JSON.parse(s)
-        if (cron = When::Cron.valid(schedule['cron'])) && cron == started_at
-          job = schedule.merge('jid' => SecureRandom.uuid)
-          job.delete('cron')
-          jobs << job
+        if (cron = When::Cron.valid(schedule['cron']))
+          if cron == started_at
+            job = schedule.merge('jid' => SecureRandom.uuid)
+            job.delete('cron')
+            jobs << job
+          end
         else
           logger.error { "Could not interpret cron for #{schedule.inspect}" }
         end
+
         jobs
       end
       logger.debug { "Found #{scheduled_jobs.count} schedules due to be queued." }
